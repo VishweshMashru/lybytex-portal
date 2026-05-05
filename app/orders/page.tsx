@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -41,7 +41,7 @@ function buildChangeRequestLink(order: Order, changeText: string) {
   return `https://wa.me/919825124751?text=${encodeURIComponent(text)}`
 }
 
-export default function OrdersPage() {
+function OrdersContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const params = useSearchParams()
@@ -133,8 +133,6 @@ export default function OrdersPage() {
             const isExpanded = expandedId === order.id
             return (
               <div key={order.id} style={{ background: "white", border: "1px solid var(--border)", borderRadius: "14px", overflow: "hidden" }}>
-
-                {/* Header */}
                 <div style={{ padding: "16px 18px", cursor: "pointer", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}>
                   <div style={{ flex: 1 }}>
@@ -151,8 +149,6 @@ export default function OrdersPage() {
 
                 {isExpanded && (
                   <div style={{ borderTop: "1px solid var(--border)", padding: "18px" }}>
-
-                    {/* Items */}
                     <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray)", textTransform: "uppercase", letterSpacing: "0.5px", margin: "0 0 10px" }}>Items</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "22px" }}>
                       {order.items.map((item, i) => (
@@ -163,7 +159,6 @@ export default function OrdersPage() {
                       ))}
                     </div>
 
-                    {/* Timeline */}
                     <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray)", textTransform: "uppercase", letterSpacing: "0.5px", margin: "0 0 14px" }}>Timeline</p>
                     <div style={{ position: "relative", paddingLeft: "22px", marginBottom: "22px" }}>
                       <div style={{ position: "absolute", left: "6px", top: 0, bottom: 0, width: "1.5px", background: "var(--border)" }} />
@@ -181,7 +176,6 @@ export default function OrdersPage() {
                       ))}
                     </div>
 
-                    {/* Actions */}
                     <div style={{ borderTop: "1px solid var(--border)", paddingTop: "18px", display: "flex", flexDirection: "column", gap: "14px" }}>
                       <a href={buildWhatsAppLink(order)} target="_blank" rel="noopener noreferrer"
                         style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#25D366", color: "white", padding: "12px 18px", borderRadius: "10px", textDecoration: "none", fontSize: "15px", fontWeight: 600, width: "fit-content" }}>
@@ -193,13 +187,9 @@ export default function OrdersPage() {
                       ) : (
                         <div>
                           <p style={{ fontSize: "15px", fontWeight: 600, margin: "0 0 8px" }}>Request a change</p>
-                          <textarea
-                            value={changeText[order.id] ?? ""}
-                            onChange={e => setChangeText(prev => ({ ...prev, [order.id]: e.target.value }))}
-                            placeholder="Describe what you'd like to change..."
-                            rows={3}
-                            style={{ width: "100%", border: "1.5px solid var(--border)", borderRadius: "10px", padding: "12px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", marginBottom: "10px" }}
-                          />
+                          <textarea value={changeText[order.id] ?? ""} onChange={e => setChangeText(prev => ({ ...prev, [order.id]: e.target.value }))}
+                            placeholder="Describe what you'd like to change..." rows={3}
+                            style={{ width: "100%", border: "1.5px solid var(--border)", borderRadius: "10px", padding: "12px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", marginBottom: "10px" }} />
                           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                             <button onClick={() => submitChangeRequest(order)}
                               disabled={submitting === order.id || !changeText[order.id]?.trim()}
@@ -225,5 +215,13 @@ export default function OrdersPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "80vh" }} />}>
+      <OrdersContent />
+    </Suspense>
   )
 }
