@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Plus, Users, Tag, ShoppingBag, Upload, X, ChevronDown, ChevronUp, Trash2, Save, Settings } from "lucide-react"
+import { Plus, Users, Package, Tag, ShoppingBag, Upload, X, ChevronDown, ChevronUp, Trash2, Save, Settings } from "lucide-react"
 
 type Tab = "orders" | "products" | "manage" | "categories" | "buyers"
 
@@ -79,16 +79,18 @@ export default function AdminPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [adminNotes, setAdminNotes] = useState<Record<number, string>>({})
   const [savingNote, setSavingNote] = useState<number | null>(null)
+
   const [newCatName, setNewCatName] = useState("")
   const [newCatDesc, setNewCatDesc] = useState("")
   const [buyerForm, setBuyerForm] = useState({ name: "", email: "", password: "", company: "", country: "", whatsappNumber: "" })
   const [buyerMsg, setBuyerMsg] = useState("")
-  const [productForm, setProductForm] = useState({ categoryId: "", name: "", description: "", cloudinaryImageId: "", unit: "dozen" })
+  const [productForm, setProductForm] = useState({ categoryId: "", name: "", description: "", cloudinaryImageId: "", unit: "dozen", baseColorName: "" })
   const [productImageUrl, setProductImageUrl] = useState("")
   const [variants, setVariants] = useState([{ colorName: "", cloudinaryImageId: "", previewUrl: "" }])
   const [productMsg, setProductMsg] = useState("")
+
   const [allProducts, setAllProducts] = useState<Product[]>([])
-  const [productsLoading, setProductsLoading] = useState(false)
+  const [productsLoaded, setProductsLoaded] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") { router.push("/login"); return }
@@ -111,19 +113,12 @@ export default function AdminPage() {
     }
   }, [session])
 
-  // Always reload products fresh when switching to manage tab
   const loadProducts = async () => {
-  setProductsLoading(true)
-  try {
-    const res = await fetch("/api/admin/products")
-    if (!res.ok) { console.error("products fetch failed:", res.status); setProductsLoading(false); return }
-    const data = await res.json()
+    if (productsLoaded) return
+    const data = await fetch("/api/admin/products").then(r => r.json())
     setAllProducts(data)
-  } catch (e) {
-    console.error("loadProducts error:", e)
+    setProductsLoaded(true)
   }
-  setProductsLoading(false)
-}
 
   const updateStatus = async (id: number, newStatus: string) => {
     const res = await fetch(`/api/orders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) })
@@ -171,27 +166,26 @@ export default function AdminPage() {
 
   const createProduct = async () => {
     setProductMsg("")
+    const baseVariant = productForm.baseColorName && productForm.cloudinaryImageId
+      ? [{ colorName: productForm.baseColorName, cloudinaryImageId: productForm.cloudinaryImageId }]
+      : []
+    const allVariants = [...baseVariant, ...variants.filter(v => v.colorName).map(v => ({ colorName: v.colorName, cloudinaryImageId: v.cloudinaryImageId || null }))]
     const res = await fetch("/api/admin/products", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...productForm, categoryId: parseInt(productForm.categoryId), variants: variants.filter(v => v.colorName).map(v => ({ colorName: v.colorName, cloudinaryImageId: v.cloudinaryImageId || null })) }),
+      body: JSON.stringify({ ...productForm, categoryId: parseInt(productForm.categoryId), variants: allVariants }),
     })
     const data = await res.json()
     if (!res.ok) { setProductMsg("Error: " + data.error); return }
     setProductMsg(`✅ "${data.name}" added to catalog`)
-    setProductForm({ categoryId: "", name: "", description: "", cloudinaryImageId: "", unit: "dozen" })
+    setProductForm({ categoryId: "", name: "", description: "", cloudinaryImageId: "", unit: "dozen", baseColorName: "" })
     setProductImageUrl(""); setVariants([{ colorName: "", cloudinaryImageId: "", previewUrl: "" }])
+    setProductsLoaded(false)
   }
 
   const toggleProduct = async (id: number, isActive: boolean) => {
-    const res = await fetch(`/api/admin/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) })
-    if (res.ok) setAllProducts(prev => prev.map(p => p.id === id ? { ...p, isActive } : p))
+    await fetch(`/api/admin/products/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) })
+    setAllProducts(prev => prev.map(p => p.id === id ? { ...p, isActive } : p))
   }
-
-  const deleteProduct = async (id: number, name: string) => {
-  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return
-  await fetch(`/api/admin/products/${id}`, { method: "DELETE" })
-  setAllProducts(prev => prev.filter(p => p.id !== id))
-}
 
   const removeProductImage = async (id: number) => {
     if (!confirm("Remove this product image?")) return
@@ -293,9 +287,13 @@ export default function AdminPage() {
 
                     <div>
                       <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--gray)", textTransform: "uppercase", letterSpacing: "0.5px", margin: "0 0 8px" }}>Internal notes (buyer cannot see)</p>
-                      <textarea value={adminNotes[order.id] ?? ""} onChange={e => setAdminNotes(prev => ({ ...prev, [order.id]: e.target.value }))}
-                        placeholder="Pricing agreed, dispatch date, special instructions..." rows={3}
-                        style={{ width: "100%", border: "1.5px solid var(--border)", borderRadius: "8px", padding: "12px", fontSize: "14px", fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", marginBottom: "10px", background: "#FFFBF0" }} />
+                      <textarea
+                        value={adminNotes[order.id] ?? ""}
+                        onChange={e => setAdminNotes(prev => ({ ...prev, [order.id]: e.target.value }))}
+                        placeholder="Pricing agreed, dispatch date, special instructions..."
+                        rows={3}
+                        style={{ width: "100%", border: "1.5px solid var(--border)", borderRadius: "8px", padding: "12px", fontSize: "14px", fontFamily: "'DM Sans', sans-serif", resize: "vertical", outline: "none", marginBottom: "10px", background: "#FFFBF0" }}
+                      />
                       <button onClick={() => saveNote(order.id)} disabled={savingNote === order.id}
                         className="btn-coral" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 18px", fontSize: "14px" }}>
                         <Save size={15} />{savingNote === order.id ? "Saving..." : "Save note"}
@@ -342,8 +340,10 @@ export default function AdminPage() {
             <option value="dozen">Dozen</option><option value="yard">Yard</option><option value="meter">Meter</option>
             <option value="piece">Piece</option><option value="roll">Roll</option><option value="bundle">Bundle</option>
           </select>
-          <ImageUploader label="Product image" value={productForm.cloudinaryImageId}
+          <ImageUploader label="Product image (main / base color)" value={productForm.cloudinaryImageId}
             onChange={(id, url) => { setProductForm(p => ({ ...p, cloudinaryImageId: id })); setProductImageUrl(url) }} />
+          <input placeholder="Color name for this image (e.g. Royal Blue) — optional" value={productForm.baseColorName}
+            onChange={e => setProductForm(p => ({ ...p, baseColorName: e.target.value }))} style={{ ...inputStyle, marginTop: "4px" }} />
           <p style={{ fontSize: "14px", fontWeight: 600, margin: "14px 0 10px" }}>Colorway variants</p>
           {variants.map((v, i) => (
             <div key={i} style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "10px", padding: "12px", background: "var(--cream2)", borderRadius: "8px" }}>
@@ -370,14 +370,14 @@ export default function AdminPage() {
       {tab === "manage" && (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <p style={{ fontSize: "14px", color: "var(--gray)", margin: "0 0 8px" }}>
-            Shelf products to hide from catalog without deleting. Delete permanently removes them (only works if no past orders).
+            Shelf products to hide them from the catalog without deleting them. Order history is always preserved.
           </p>
-          {productsLoading && <p style={{ color: "var(--gray)", textAlign: "center", padding: "40px 0" }}>Loading products...</p>}
-          {!productsLoading && allProducts.length === 0 && <p style={{ color: "var(--gray)", textAlign: "center", padding: "40px 0" }}>No products yet.</p>}
+          {allProducts.length === 0 && <p style={{ color: "var(--gray)", textAlign: "center", padding: "40px 0" }}>No products yet.</p>}
           {allProducts.map(product => (
             <div key={product.id} style={{ background: "white", border: `1px solid ${product.isActive ? "var(--border)" : "#FCA5A5"}`, borderRadius: "12px", padding: "16px 18px", opacity: product.isActive ? 1 : 0.75 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", flexWrap: "wrap" }}>
 
+                {/* Image */}
                 {product.cloudinaryImageId ? (
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <img src={`https://res.cloudinary.com/${CLOUD}/image/upload/w_64,h_64,c_fill/${product.cloudinaryImageId}`}
@@ -391,6 +391,7 @@ export default function AdminPage() {
                   <div style={{ width: "60px", height: "60px", background: "var(--cream2)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", flexShrink: 0 }}>🧵</div>
                 )}
 
+                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
                     <p style={{ fontWeight: 700, fontSize: "15px", margin: 0 }}>{product.name}</p>
@@ -398,6 +399,8 @@ export default function AdminPage() {
                     <span style={{ fontSize: "12px", color: "var(--gray)", background: "var(--cream2)", padding: "2px 8px", borderRadius: "20px" }}>{product.unit}</span>
                     {!product.isActive && <span style={{ fontSize: "12px", background: "#FEE2E2", color: "#B91C1C", padding: "2px 8px", borderRadius: "20px", fontWeight: 600 }}>Shelved</span>}
                   </div>
+
+                  {/* Variants */}
                   {product.variants.length > 0 && (
                     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                       {product.variants.map(v => (
@@ -423,16 +426,11 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px", flexShrink: 0 }}>
-                  <button onClick={() => toggleProduct(product.id, !product.isActive)}
-                    style={{ padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "13px", background: product.isActive ? "#FEE2E2" : "#DCFCE7", color: product.isActive ? "#B91C1C" : "#166534", WebkitTapHighlightColor: "transparent" }}>
-                    {product.isActive ? "Shelf it" : "Restore"}
-                  </button>
-                  <button onClick={() => deleteProduct(product.id, product.name)}
-                    style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #FCA5A5", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "13px", background: "white", color: "#B91C1C", WebkitTapHighlightColor: "transparent" }}>
-                    Delete
-                  </button>
-                </div>
+                {/* Shelf/Restore button */}
+                <button onClick={() => toggleProduct(product.id, !product.isActive)}
+                  style={{ padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "13px", background: product.isActive ? "#FEE2E2" : "#DCFCE7", color: product.isActive ? "#B91C1C" : "#166534", flexShrink: 0, WebkitTapHighlightColor: "transparent" }}>
+                  {product.isActive ? "Shelf it" : "Restore"}
+                </button>
               </div>
             </div>
           ))}
