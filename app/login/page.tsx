@@ -1,10 +1,10 @@
 "use client"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const callbackUrl = params.get("callbackUrl") ?? "/cart"
@@ -38,17 +38,13 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <div>
               <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--black)", display: "block", marginBottom: "6px" }}>Email</label>
-              <input
-                type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "8px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", outline: "none", background: "white" }}
-              />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+                style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "8px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", outline: "none", background: "white" }} />
             </div>
             <div>
               <label style={{ fontSize: "13px", fontWeight: 500, color: "var(--black)", display: "block", marginBottom: "6px" }}>Password</label>
-              <input
-                type="password" value={password} onChange={e => setPassword(e.target.value)} required
-                style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "8px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", outline: "none", background: "white" }}
-              />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                style={{ width: "100%", padding: "11px 14px", border: "1.5px solid var(--border)", borderRadius: "8px", fontSize: "15px", fontFamily: "'DM Sans', sans-serif", outline: "none", background: "white" }} />
             </div>
             {error && <p style={{ color: "var(--coral)", fontSize: "13px", margin: 0 }}>{error}</p>}
             <button type="submit" className="btn-coral" disabled={loading} style={{ width: "100%", padding: "12px", marginTop: "4px", opacity: loading ? 0.7 : 1 }}>
@@ -71,5 +67,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: "80vh" }} />}>
+      <LoginForm />
+    </Suspense>
   )
 }
