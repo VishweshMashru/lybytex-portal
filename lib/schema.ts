@@ -4,8 +4,6 @@ import { relations } from "drizzle-orm"
 export const userRoleEnum = pgEnum("user_role", ["admin", "buyer"])
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"])
 export const unitEnum = pgEnum("unit", ["dozen", "yard", "meter", "piece", "roll", "bundle"])
-export const logActorEnum = pgEnum("log_actor", ["admin", "buyer"])
-export const logActionEnum = pgEnum("log_action", ["order_placed", "status_changed", "admin_note", "change_requested", "items_modified"])
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -36,6 +34,8 @@ export const products = pgTable("products", {
   cloudinaryImageId: text("cloudinary_image_id"),
   unit: unitEnum("unit").default("dozen").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(999).notNull(),
+  badge: text("badge"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
@@ -59,6 +59,9 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
+
+export const logActorEnum = pgEnum("log_actor", ["admin", "buyer"])
+export const logActionEnum = pgEnum("log_action", ["order_placed", "status_changed", "admin_note", "change_requested", "items_modified"])
 
 export const orderLogs = pgTable("order_logs", {
   id: serial("id").primaryKey(),

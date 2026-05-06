@@ -15,6 +15,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const updates: Record<string, any> = {}
   if (body.isActive !== undefined) updates.isActive = body.isActive
   if (body.cloudinaryImageId !== undefined) updates.cloudinaryImageId = body.cloudinaryImageId
+  if (body.badge !== undefined) updates.badge = body.badge === "" ? null : body.badge
+  if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+  }
 
   const [updated] = await db.update(products).set(updates).where(eq(products.id, parseInt(id))).returning()
   return NextResponse.json(updated)
@@ -28,20 +34,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   const productId = parseInt(id)
-  const body = await req.json().catch(() => ({}))
-  
-  if (body.hard) {
-    // Hard delete — only if no orders reference this product
-    const referenced = await db.select().from(orderItems).where(eq(orderItems.productId, productId))
-    if (referenced.length > 0) {
-      return NextResponse.json({ error: "Cannot delete — this product exists in past orders. Shelf it instead." }, { status: 409 })
-    }
-    await db.delete(productVariants).where(eq(productVariants.productId, productId))
-    await db.delete(products).where(eq(products.id, productId))
-    return NextResponse.json({ ok: true, deleted: true })
-  }
+  await db.delete(orderItems).where(eq(orderItems.productId, productId))
+  await db.delete(productVariants).where(eq(productVariants.productId, productId))
+  await db.delete(products).where(eq(products.id, productId))
 
-  // Soft delete by default
-  const [updated] = await db.update(products).set({ isActive: false }).where(eq(products.id, productId)).returning()
-  return NextResponse.json(updated)
+  return NextResponse.json({ ok: true })
 }

@@ -3,6 +3,8 @@ import { db } from "@/lib/db"
 import { products, categories, productVariants } from "@/lib/schema"
 import { eq, ilike, and } from "drizzle-orm"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const categorySlug = searchParams.get("category")
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest) {
       category: true,
       variants: { where: eq(productVariants.isActive, true) },
     },
-    orderBy: (p, { asc }) => [asc(p.categoryId), asc(p.name)],
+    orderBy: (p, { asc }) => [asc(p.sortOrder), asc(p.name)],
   })
 
   return NextResponse.json(rows)

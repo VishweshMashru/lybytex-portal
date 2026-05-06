@@ -15,6 +15,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const updates: Record<string, any> = {}
   if (body.isActive !== undefined) updates.isActive = body.isActive
   if (body.cloudinaryImageId !== undefined) updates.cloudinaryImageId = body.cloudinaryImageId
+  if (body.badge !== undefined) updates.badge = body.badge === "" ? null : body.badge
+  if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+  }
 
   const [updated] = await db.update(products).set(updates).where(eq(products.id, parseInt(id))).returning()
   return NextResponse.json(updated)
